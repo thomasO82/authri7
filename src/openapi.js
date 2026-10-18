@@ -4,26 +4,26 @@ const openApiDocument = {
     title: "Authri7 — API d'authentification",
     version: "1.0.0",
     description: `
-API pédagogique d'inscription, de connexion et de vérification d'un JWT Bearer.
+Créez votre compte, connectez-vous avec votre adresse e-mail et consultez votre profil.
 
-### Parcours conseillé
+### Créer un compte
 
-1. Créez un compte avec **POST /api/register**, ou connectez-vous avec **POST /api/login**.
-2. Copiez le champ **token** renvoyé par l'API.
-3. Cliquez sur **Authorize**, collez le jeton seul (sans écrire le préfixe Bearer), puis validez.
-4. Essayez **GET /api/me** : Swagger ajoutera automatiquement l'en-tête Authorization avec le schéma Bearer.
+Dans **POST /api/register**, renseignez un nom d'utilisateur, votre adresse e-mail et un mot de passe.
 
-Le jeton expire après **3600 secondes (1 heure)**. Les mots de passe ne sont jamais renvoyés par l'API; ils sont stockés sous forme de hash.
+- Le nom d'utilisateur doit contenir de 3 à 32 lettres, chiffres, points, tirets ou tirets bas.
+- L'adresse e-mail sert à vous connecter. Les majuscules et les espaces autour sont automatiquement normalisés.
+- Aucun e-mail de confirmation n'est envoyé après l'inscription.
+- Le mot de passe doit contenir au moins 8 caractères et ne pas dépasser la limite de 72 octets UTF-8.
 
-Les JWT utilisent HS256 et doivent être signés avec le secret configuré côté serveur. Ils contiennent l'identifiant du compte dans sub, le nom d'utilisateur et l'adresse e-mail lorsqu'elle existe. Le backend requiert JWT_SECRET; PORT est facultatif (3000 par défaut, 3999 en production). Swagger UI est disponible sur /api-docs. Les comptes sont persistés dans data/auth.sqlite.
+### Se connecter
 
-L'adresse e-mail est enregistrée et constitue l'unique identifiant de connexion. Elle est normalisée en minuscules, mais elle n'est pas vérifiée par envoi d'un courriel : ce backend ne dispose pas de service d'envoi ni de procédure de vérification d'adresse.
+Dans **POST /api/login**, utilisez votre adresse e-mail et votre mot de passe. Le nom d'utilisateur ne peut pas servir à la connexion.
 
-### Format des erreurs
+### Voir votre profil
 
-Les erreurs JSON ont un code stable dans le champ error et une explication lisible dans le champ message. Les erreurs de validation ajoutent details, avec une entrée par champ invalide. Le message de chaque détail précise la valeur reçue et la contrainte attendue lorsque cela s'applique.
+Après l'inscription ou la connexion, copiez le jeton reçu. Cliquez sur **Authorize**, collez le jeton, puis essayez **GET /api/me** pour afficher votre profil.
 
-Une URL ou une méthode non déclarée par l'API renvoie 404 avec error égal à not_found et le chemin demandé dans message. Les erreurs internes renvoient 500 sans détails techniques.
+Le jeton reste valide pendant une heure. Quand il expire, connectez-vous à nouveau pour en obtenir un autre. Les exemples de requêtes et de réponses sont disponibles dans chaque opération ci-dessous.
     `.trim(),
   },
   servers: [
