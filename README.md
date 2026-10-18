@@ -27,6 +27,17 @@ Démarrez le serveur :
 npm run dev
 ```
 
+L'interface Swagger est disponible en développement et en production à `https://<votre-domaine>/api-docs` (en local : `http://localhost:3000/api-docs`). Elle utilise la même origine que le backend.
+
+Pour essayer `/api/me` depuis Swagger :
+
+1. Ouvrez `POST /api/login`, cliquez sur **Try it out**, puis **Execute** avec `admin` et `password` (ou les identifiants configurés).
+2. Copiez le champ `token` de la réponse `200`.
+3. Cliquez sur **Authorize**, collez le JWT seul, sans le préfixe `Bearer`, puis validez.
+4. Ouvrez `GET /api/me`, cliquez sur **Try it out**, puis **Execute**.
+
+La route `/api-docs` reste montée en production ; elle n'est pas limitée à l'environnement de développement. La vérification Bearer reste exigée pour `GET /api/me`.
+
 ## Routes
 
 ### `POST /api/login`

@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const jwt = require("jsonwebtoken");
+const swaggerUi = require("swagger-ui-express");
+const openApiDocument = require("./openapi");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -15,6 +17,7 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 
 app.use(express.json());
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body || {};
