@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
 const openApiDocument = require("./openapi");
 const authRouter = require("./routes/auth.routes");
@@ -6,6 +7,14 @@ const meRouter = require("./routes/me.routes");
 const { sendError } = require("./utils/http-errors");
 
 const app = express();
+
+const localOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+app.use(cors({
+  origin(origin, callback) {
+    callback(null, !origin || localOrigin.test(origin));
+  },
+  credentials: false,
+}));
 
 app.use(express.json({ limit: "100kb" }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));

@@ -39,6 +39,8 @@ La base est créée automatiquement dans `data/auth.sqlite`. Au démarrage, une 
 
 Swagger UI est disponible en local sur `http://localhost:3000/api-docs` et en production sur `https://<votre-domaine>/api-docs`.
 
+En développement, CORS autorise les frontends servis depuis `http://localhost:<port>` ou `http://127.0.0.1:<port>`. Les requêtes sans origine (par exemple `curl`) restent possibles. Les cookies et identifiants CORS ne sont pas activés ; les routes protégées exigent toujours un jeton Bearer.
+
 Pour essayer le parcours complet :
 
 1. Exécutez `POST /api/register` avec une adresse e-mail et un mot de passe valides.
