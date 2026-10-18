@@ -3,7 +3,7 @@ const openApiDocument = {
   info: {
     title: "Authri7 API",
     version: "1.0.0",
-    description: "API pédagogique de connexion et de validation d'un jeton Bearer.",
+    description: "API pédagogique d'inscription, de connexion et de validation d'un jeton Bearer.",
   },
   servers: [
     {
@@ -13,6 +13,73 @@ const openApiDocument = {
   ],
   tags: [{ name: "Authentification" }],
   paths: {
+    "/api/register": {
+      post: {
+        tags: ["Authentification"],
+        summary: "Créer un compte et obtenir un JWT",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["username", "password"],
+                properties: {
+                  username: {
+                    type: "string",
+                    minLength: 3,
+                    maxLength: 32,
+                    pattern: "^[A-Za-z0-9_.-]+$",
+                    description: "Les espaces en début et fin sont retirés. L'unicité ne tient pas compte de la casse.",
+                    example: "alice",
+                  },
+                  password: {
+                    type: "string",
+                    minLength: 8,
+                    description: "Au moins 8 caractères, maximum 72 octets UTF-8.",
+                    example: "mot-de-passe-123",
+                  },
+                },
+              },
+              example: { username: "alice", password: "mot-de-passe-123" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Compte créé. Le jeton expire après une heure.",
+            content: {
+              "application/json": {
+                example: {
+                  user: { username: "alice" },
+                  token: "eyJ...",
+                  token_type: "Bearer",
+                  expires_in: 3600,
+                },
+              },
+            },
+          },
+          400: {
+            description: "Nom d'utilisateur ou mot de passe invalide.",
+            content: {
+              "application/json": {
+                example: { error: "invalid_request" },
+              },
+            },
+          },
+          409: {
+            description: "Ce nom d'utilisateur est déjà utilisé.",
+            content: {
+              "application/json": {
+                example: { error: "username_taken" },
+              },
+            },
+          },
+          413: { description: "Le corps de la requête est trop volumineux." },
+          415: { description: "Encodage ou jeu de caractères non pris en charge." },
+        },
+      },
+    },
     "/api/login": {
       post: {
         tags: ["Authentification"],
@@ -25,11 +92,15 @@ const openApiDocument = {
                 type: "object",
                 required: ["username", "password"],
                 properties: {
-                  username: { type: "string", example: "admin" },
-                  password: { type: "string", example: "password" },
+                  username: { type: "string", example: "alice" },
+                  password: {
+                    type: "string",
+                    description: "Maximum 72 octets UTF-8.",
+                    example: "mot-de-passe-123",
+                  },
                 },
               },
-              example: { username: "admin", password: "password" },
+              example: { username: "alice", password: "mot-de-passe-123" },
             },
           },
         },
@@ -55,13 +126,15 @@ const openApiDocument = {
             },
           },
           401: {
-            description: "Identifiants incorrects.",
+            description: "Nom d'utilisateur ou mot de passe incorrect.",
             content: {
               "application/json": {
                 example: { error: "invalid_credentials" },
               },
             },
           },
+          413: { description: "Le corps de la requête est trop volumineux." },
+          415: { description: "Encodage ou jeu de caractères non pris en charge." },
         },
       },
     },
@@ -75,7 +148,7 @@ const openApiDocument = {
             description: "Jeton valide.",
             content: {
               "application/json": {
-                example: { user: { username: "admin" } },
+                example: { user: { username: "alice" } },
               },
             },
           },
@@ -97,7 +170,7 @@ const openApiDocument = {
         type: "http",
         scheme: "bearer",
         bearerFormat: "JWT",
-        description: "Collez le JWT obtenu avec POST /api/login, sans ajouter le préfixe Bearer.",
+        description: "Collez le JWT obtenu avec POST /api/register ou POST /api/login, sans ajouter le préfixe Bearer.",
       },
     },
   },
