@@ -1,11 +1,21 @@
 const jwt = require("jsonwebtoken");
+const { sendError } = require("../utils/http-errors");
+
+function unauthorized(res, message) {
+  return sendError(res, 401, "unauthorized", message);
+}
 
 function requireAuth(req, res, next) {
   const authorization = req.get("authorization") || "";
+
+  if (!authorization) {
+    return unauthorized(res, "Jeton manquant. Envoyez-le dans l'en-tête Authorization: Bearer <token>.");
+  }
+
   const match = authorization.match(/^Bearer\s+(\S+)$/i);
 
   if (!match) {
-    return res.status(401).json({ error: "unauthorized" });
+    return unauthorized(res, "En-tête Authorization invalide. Le format attendu est Bearer <token>.");
   }
 
   try {
@@ -14,7 +24,7 @@ function requireAuth(req, res, next) {
     });
 
     if (typeof payload.sub !== "string" || typeof payload.username !== "string") {
-      return res.status(401).json({ error: "unauthorized" });
+      return unauthorized(res, "Le jeton ne contient pas les informations d'identité attendues. Reconnectez-vous.");
     }
 
     req.authUser = {
@@ -23,8 +33,16 @@ function requireAuth(req, res, next) {
     };
 
     return next();
-  } catch {
-    return res.status(401).json({ error: "unauthorized" });
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return unauthorized(res, "Le jeton a expiré. Reconnectez-vous pour en obtenir un nouveau.");
+    }
+
+    if (error.name === "JsonWebTokenError" || error.name === "NotBeforeError") {
+      return unauthorized(res, "Le jeton est invalide ou n'est pas encore actif. Vérifiez-le ou reconnectez-vous.");
+    }
+
+    return unauthorized(res, "Impossible de vérifier le jeton. Reconnectez-vous pour en obtenir un nouveau.");
   }
 }
 

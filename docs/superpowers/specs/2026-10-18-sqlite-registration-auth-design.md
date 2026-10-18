@@ -32,16 +32,16 @@ Accepte `{ "username": "alice", "password": "mot-de-passe" }`.
 - Le nom d'utilisateur est supprimé des espaces de début/fin, doit faire 3 à 32 caractères et correspondre à `^[A-Za-z0-9_.-]+$`.
 - Le mot de passe doit contenir au moins 8 caractères et au maximum 72 octets UTF-8, limite de bcrypt.
 - Réussite : `201` avec `{ "user": { "username": "alice" }, "token": "<jwt>", "token_type": "Bearer", "expires_in": 3600 }`.
-- Corps invalide : `400` avec `{ "error": "invalid_request" }`.
-- Nom d'utilisateur déjà pris, sans distinction de casse : `409` avec `{ "error": "username_taken" }`.
+- Corps invalide : `400` avec `{ "error": "invalid_request", "message": "...", "details": [{ "field": "...", "code": "...", "message": "..." }] }`. Les détails indiquent les champs concernés, la valeur mesurée et les limites attendues.
+- Nom d'utilisateur déjà pris, sans distinction de casse : `409` avec `{ "error": "username_taken", "message": "...", "details": [...] }`.
 
 ### `POST /api/login`
 
-Accepte `{ "username": "alice", "password": "mot-de-passe" }`. Cherche le compte dans SQLite et compare le mot de passe au hash bcrypt de manière asynchrone. Réussite : `200` avec `{ "token": "<jwt>", "token_type": "Bearer", "expires_in": 3600 }`. Corps mal formé ou mot de passe de plus de 72 octets UTF-8 : `400` avec `{ "error": "invalid_request" }`. Compte absent ou mot de passe erroné : `401` avec `{ "error": "invalid_credentials" }`.
+Accepte `{ "username": "alice", "password": "mot-de-passe" }`. Cherche le compte dans SQLite et compare le mot de passe au hash bcrypt de manière asynchrone. Réussite : `200` avec `{ "token": "<jwt>", "token_type": "Bearer", "expires_in": 3600 }`. Les champs invalides reçoivent `400` avec un message et un détail par champ. Compte absent ou mot de passe erroné : `401` avec `{ "error": "invalid_credentials", "message": "..." }` (même réponse pour ne pas révéler si le compte existe).
 
 ### `GET /api/me`
 
-Garde l'en-tête `Authorization: Bearer <jwt>`. Le middleware vérifie signature, algorithme et expiration, puis le handler répond `200` avec `{ "user": { "username": "alice" } }`. Un jeton absent, mal formé, expiré ou invalide reçoit `401` avec `{ "error": "unauthorized" }`.
+Garde l'en-tête `Authorization: Bearer <jwt>`. Le middleware vérifie signature, algorithme et expiration, puis le handler répond `200` avec `{ "user": { "username": "alice" } }`. Un jeton absent, mal formé, expiré ou invalide reçoit `401` avec `{ "error": "unauthorized", "message": "..." }`, le message décrit le cas et rappelle la correction attendue.
 
 ## Swagger et déploiement
 

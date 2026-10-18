@@ -48,6 +48,24 @@ Pour essayer le parcours complet :
 
 ## Routes
 
+Les erreurs JSON contiennent toujours un code stable `error` et un message lisible `message`. Pour les champs invalides, `details` liste chaque champ à corriger avec sa mesure et la règle attendue. Le client peut afficher `message` ou présenter chaque entrée de `details` près du champ concerné.
+
+Exemple :
+
+```json
+{
+  "error": "invalid_request",
+  "message": "La requête contient des champs invalides. Consultez details pour savoir quoi corriger.",
+  "details": [
+    {
+      "field": "password",
+      "code": "too_short",
+      "message": "Le mot de passe contient 5 caractères; le minimum est de 8."
+    }
+  ]
+}
+```
+
 ### `POST /api/register`
 
 Crée un compte et renvoie un JWT. Exemple de corps :
@@ -69,7 +87,7 @@ En cas de succès, la réponse `201` ressemble à ceci :
 }
 ```
 
-Corps invalide : `400 { "error": "invalid_request" }`. Nom d'utilisateur déjà utilisé (insensible à la casse) : `409 { "error": "username_taken" }`.
+Un champ absent ou invalide reçoit `400` avec `error: "invalid_request"`, un message et une entrée par erreur dans `details`. Les détails indiquent le nombre de caractères ou d'octets reçu et la limite attendue. Nom d'utilisateur déjà utilisé (insensible à la casse) : `409 { "error": "username_taken", "message": "...", "details": [...] }`.
 
 ### `POST /api/login`
 
@@ -79,7 +97,7 @@ Vérifie un compte existant dans SQLite avec le mot de passe fourni :
 { "username": "alice", "password": "mot-de-passe-123" }
 ```
 
-En cas de succès, la réponse `200` contient `{ "token": "<jwt>", "token_type": "Bearer", "expires_in": 3600 }`. Un corps invalide reçoit `400 { "error": "invalid_request" }`. Un nom d'utilisateur inconnu ou un mot de passe incorrect reçoit le même `401 { "error": "invalid_credentials" }`.
+En cas de succès, la réponse `200` contient `{ "token": "<jwt>", "token_type": "Bearer", "expires_in": 3600 }`. Les champs absents ou invalides reçoivent `400` avec les détails de validation. Un nom d'utilisateur inconnu ou un mot de passe incorrect reçoit le même `401 { "error": "invalid_credentials", "message": "..." }` afin de ne pas révéler si le compte existe.
 
 ### `GET /api/me`
 
@@ -95,7 +113,9 @@ Réponse `200` :
 { "user": { "username": "alice" } }
 ```
 
-Un jeton absent, mal formé, expiré ou invalide reçoit `401 { "error": "unauthorized" }`.
+Un jeton absent, mal formé, expiré ou invalide reçoit `401 { "error": "unauthorized", "message": "..." }`. Le message précise le cas et rappelle le format `Authorization: Bearer <token>` lorsque l'en-tête manque ou est mal formé.
+
+Une route inexistante renvoie `404` avec `error: "not_found"` et son nom. Un JSON mal formé reçoit `400`; le corps est limité à 102400 octets (`413` au-delà), et les encodages/jeux de caractères non pris en charge reçoivent `415`. Les erreurs serveur restent génériques (`500`) et ne révèlent pas de détails internes.
 
 ## Exemple avec curl
 
