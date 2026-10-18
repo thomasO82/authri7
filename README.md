@@ -33,7 +33,7 @@ Lancez avec PM2 en production depuis le dossier du projet :
 PORT=3999 pm2 start npm --name authri7 -- run start
 ```
 
-La base est créée automatiquement dans `data/auth.sqlite`. Au démarrage, une ancienne base est migrée vers une table sans nom d'utilisateur, avec l'adresse e-mail comme identifiant unique. Les comptes historiques sans adresse e-mail ne peuvent plus se connecter. Le processus PM2 doit pouvoir écrire dans `data/`. Le fichier est ignoré par Git et reste présent au redémarrage du serveur ; prévoyez une sauvegarde si les comptes doivent être conservés.
+La base est créée automatiquement dans `data/auth.sqlite`. Au démarrage, une ancienne base reçoit la colonne `username` si elle n'existe pas. Les comptes historiques conservent leur adresse e-mail comme identifiant de connexion ; leur nom d'utilisateur peut rester vide s'il avait été supprimé précédemment. Les nouveaux noms d'utilisateur sont uniques sans distinction de casse. Le processus PM2 doit pouvoir écrire dans `data/`. Le fichier est ignoré par Git et reste présent au redémarrage du serveur ; prévoyez une sauvegarde si les comptes doivent être conservés.
 
 ## Swagger
 
@@ -43,7 +43,7 @@ En développement, CORS autorise les frontends servis depuis `http://localhost:<
 
 Pour essayer le parcours complet :
 
-1. Exécutez `POST /api/register` avec une adresse e-mail et un mot de passe valides.
+1. Exécutez `POST /api/register` avec un nom d'utilisateur, une adresse e-mail et un mot de passe valides.
 2. Copiez le champ `token` de la réponse.
 3. Cliquez sur **Authorize** et collez le JWT seul, sans ajouter `Bearer`.
 4. Exécutez `GET /api/me`.
@@ -70,13 +70,13 @@ Exemple :
 
 ### `POST /api/register`
 
-Crée un compte et renvoie un JWT. Exemple de corps :
+Crée un compte et renvoie un JWT. Le nom d'utilisateur est conservé et affiché dans le profil, mais la connexion se fait uniquement avec l'adresse e-mail. Exemple de corps :
 
 ```json
-{ "email": "alice@example.fr", "password": "mot-de-passe-123" }
+{ "username": "alice", "email": "alice@example.fr", "password": "mot-de-passe-123" }
 ```
 
-L'adresse e-mail est nettoyée des espaces autour, convertie en minuscules, limitée à 254 caractères et doit ressembler à `nom@exemple.fr`. Elle est l'unique identifiant du compte et doit être unique. Le mot de passe doit avoir au moins 8 caractères et ne pas dépasser 72 octets en UTF-8. Il est stocké sous forme de hash bcrypt.
+Le nom d'utilisateur est nettoyé des espaces autour, doit contenir de 3 à 32 caractères ASCII (lettres, chiffres, `.`, `_` ou `-`) et être unique sans distinction de casse. L'adresse e-mail est nettoyée des espaces autour, convertie en minuscules, limitée à 254 caractères et doit ressembler à `nom@exemple.fr`. Elle est le seul identifiant utilisé pour se connecter. Le mot de passe doit avoir au moins 8 caractères et ne pas dépasser 72 octets en UTF-8. Il est stocké sous forme de hash bcrypt.
 
 L'adresse n'est pas confirmée par e-mail : l'API ne vérifie pas que l'utilisateur la contrôle.
 
@@ -84,18 +84,18 @@ En cas de succès, la réponse `201` ressemble à ceci :
 
 ```json
 {
-  "user": { "email": "alice@example.fr" },
+  "user": { "username": "alice", "email": "alice@example.fr" },
   "token": "<jwt>",
   "token_type": "Bearer",
   "expires_in": 3600
 }
 ```
 
-Un champ absent ou invalide reçoit `400` avec `error: "invalid_request"`, un message et une entrée par erreur dans `details`. Les détails indiquent le nombre de caractères ou d'octets reçu et la limite attendue. Adresse e-mail déjà utilisée : `409 { "error": "email_taken", "message": "...", "details": [...] }`.
+Un champ absent ou invalide reçoit `400` avec `error: "invalid_request"`, un message et une entrée par erreur dans `details`. Nom d'utilisateur déjà utilisé : `409` avec `error: "username_taken"`. Adresse e-mail déjà utilisée : `409` avec `error: "email_taken"`.
 
 ### `POST /api/login`
 
-Les nouveaux comptes peuvent se connecter avec leur adresse e-mail et leur mot de passe :
+Connectez-vous uniquement avec votre adresse e-mail et votre mot de passe ; le nom d'utilisateur ne sert pas d'identifiant :
 
 ```json
 { "email": "alice@example.fr", "password": "mot-de-passe-123" }
@@ -114,7 +114,7 @@ Authorization: Bearer <jwt>
 Réponse `200` :
 
 ```json
-{ "user": { "email": "alice@example.fr" } }
+{ "user": { "username": "alice", "email": "alice@example.fr" } }
 ```
 
 Un jeton absent, mal formé, expiré ou invalide reçoit `401 { "error": "unauthorized", "message": "..." }`. Le message précise le cas et rappelle le format `Authorization: Bearer <token>` lorsque l'en-tête manque ou est mal formé.
@@ -128,7 +128,7 @@ Créer le compte et récupérer le JWT :
 ```bash
 TOKEN=$(curl -s http://localhost:3000/api/register \
   -H 'Content-Type: application/json' \
-  -d '{"email":"alice@example.fr","password":"mot-de-passe-123"}' \
+  -d '{"username":"alice","email":"alice@example.fr","password":"mot-de-passe-123"}' \
   | node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).token')
 ```
 
