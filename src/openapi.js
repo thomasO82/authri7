@@ -15,7 +15,9 @@ API pédagogique d'inscription, de connexion et de vérification d'un JWT Bearer
 
 Le jeton expire après **3600 secondes (1 heure)**. Les mots de passe ne sont jamais renvoyés par l'API; ils sont stockés sous forme de hash.
 
-Les JWT utilisent HS256 et doivent être signés avec le secret configuré côté serveur. Le backend requiert JWT_SECRET; PORT est facultatif (3000 par défaut, 3999 en production). Swagger UI est disponible sur /api-docs. Les comptes sont persistés dans data/auth.sqlite.
+Les JWT utilisent HS256 et doivent être signés avec le secret configuré côté serveur. Ils contiennent l'identifiant du compte dans sub, le nom d'utilisateur et l'adresse e-mail lorsqu'elle existe. Le backend requiert JWT_SECRET; PORT est facultatif (3000 par défaut, 3999 en production). Swagger UI est disponible sur /api-docs. Les comptes sont persistés dans data/auth.sqlite.
+
+L'adresse e-mail est enregistrée et constitue l'unique identifiant de connexion. Elle est normalisée en minuscules, mais elle n'est pas vérifiée par envoi d'un courriel : ce backend ne dispose pas de service d'envoi ni de procédure de vérification d'adresse.
 
 ### Format des erreurs
 
@@ -47,30 +49,32 @@ Crée un compte dans SQLite, hash le mot de passe avec bcrypt, puis renvoie imm�
 
 Le nom d'utilisateur est débarrassé des espaces au début et à la fin avant validation. Il doit ensuite contenir de 3 à 32 caractères ASCII : lettres, chiffres, tiret bas, point ou tiret. Les noms d'utilisateur sont uniques sans distinction de casse.
 
+L'adresse e-mail est obligatoire. Les espaces autour sont supprimés et l'adresse est convertie en minuscules avant enregistrement. Elle doit avoir au plus 254 caractères et ressembler à une adresse de la forme nom@exemple.fr. Une même adresse ne peut être utilisée que pour un seul compte. L'API ne confirme pas que l'utilisateur contrôle cette adresse.
+
 Le mot de passe doit contenir au moins 8 caractères Unicode et au maximum 72 octets une fois encodé en UTF-8. La limite en octets est celle requise par bcrypt; les caractères accentués et emoji peuvent occuper plusieurs octets chacun.
         `.trim(),
         requestBody: {
           required: true,
-          description: "Un objet JSON contenant les deux champs obligatoires. Envoyer avec Content-Type: application/json et un corps UTF-8.",
+          description: "Un objet JSON contenant username, email et password. Envoyer avec Content-Type: application/json et un corps UTF-8.",
           content: {
             "application/json": {
-              schema: { $ref: "#/components/schemas/CredentialsRequest" },
+              schema: { $ref: "#/components/schemas/RegisterRequest" },
               examples: {
                 valide: {
                   summary: "Inscription valide",
-                  value: { username: "alice", password: "mot-de-passe-123" },
+                  value: { username: "alice", email: "alice@example.fr", password: "mot-de-passe-123" },
                 },
                 espacesAutour: {
                   summary: "Les espaces autour du nom sont retirés",
-                  value: { username: "  alice  ", password: "mot-de-passe-123" },
+                  value: { username: "  alice  ", email: "  ALICE@EXAMPLE.FR  ", password: "mot-de-passe-123" },
                 },
                 motDePasseTropCourt: {
                   summary: "Exemple invalide : mot de passe trop court",
-                  value: { username: "alice", password: "court" },
+                  value: { username: "alice", email: "alice@example.fr", password: "court" },
                 },
                 nomInvalide: {
                   summary: "Exemple invalide : caractères interdits dans le nom",
-                  value: { username: "alice martin", password: "mot-de-passe-123" },
+                  value: { username: "alice martin", email: "alice@example.fr", password: "mot-de-passe-123" },
                 },
               },
             },
@@ -83,7 +87,7 @@ Le mot de passe doit contenir au moins 8 caractères Unicode et au maximum 72 oc
               "application/json": {
                 schema: { $ref: "#/components/schemas/RegisterResponse" },
                 example: {
-                  user: { username: "alice" },
+                  user: { username: "alice", email: "alice@example.fr" },
                   token: "<jwt-signé-à-copier-dans-authorize>",
                   token_type: "Bearer",
                   expires_in: 3600,
@@ -104,6 +108,7 @@ Le mot de passe doit contenir au moins 8 caractères Unicode et au maximum 72 oc
                       message: "La requête contient des champs invalides. Consultez details pour savoir quoi corriger.",
                       details: [
                         { field: "username", code: "invalid_length", message: "Le nom d'utilisateur contient 2 caractères après suppression des espaces; il en faut entre 3 et 32." },
+                        { field: "email", code: "invalid_format", message: "L'adresse e-mail doit contenir un nom, le caractère @ et un domaine avec une extension (exemple : nom@exemple.fr)." },
                         { field: "password", code: "too_short", message: "Le mot de passe contient 5 caractères; le minimum est de 8." },
                       ],
                     },
@@ -121,14 +126,27 @@ Le mot de passe doit contenir au moins 8 caractères Unicode et au maximum 72 oc
             },
           },
           409: {
-            description: "Le nom d'utilisateur est déjà utilisé. La comparaison est insensible à la casse.",
+            description: "Le nom d'utilisateur ou l'adresse e-mail est déjà utilisé. Les deux comparaisons sont insensibles à la casse.",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ApiError" },
-                example: {
-                  error: "username_taken",
-                  message: "Ce nom d'utilisateur est déjà utilisé. Choisissez-en un autre.",
-                  details: [{ field: "username", code: "already_taken", message: "Les noms d'utilisateur sont uniques sans distinction de casse." }],
+                examples: {
+                  emailPris: {
+                    summary: "Adresse e-mail déjà associée à un compte",
+                    value: {
+                      error: "email_taken",
+                      message: "Cette adresse e-mail est déjà associée à un compte. Utilisez une autre adresse ou connectez-vous.",
+                      details: [{ field: "email", code: "already_taken", message: "Les adresses e-mail sont normalisées en minuscules et uniques." }],
+                    },
+                  },
+                  nomPris: {
+                    summary: "Nom d'utilisateur déjà associé à un compte",
+                    value: {
+                      error: "username_taken",
+                      message: "Ce nom d'utilisateur est déjà utilisé. Choisissez-en un autre.",
+                      details: [{ field: "username", code: "already_taken", message: "Les noms d'utilisateur sont uniques sans distinction de casse." }],
+                    },
+                  },
                 },
               },
             },
@@ -169,24 +187,28 @@ Le mot de passe doit contenir au moins 8 caractères Unicode et au maximum 72 oc
         operationId: "login",
         summary: "Vérifier les identifiants et obtenir un JWT",
         description: `
-Cherche le nom d'utilisateur dans SQLite, puis compare le mot de passe fourni avec son hash bcrypt. Le nom est nettoyé des espaces autour et les contraintes de saisie sont les mêmes que pour l'inscription.
+Cherche l'adresse e-mail dans SQLite, puis compare le mot de passe fourni avec son hash bcrypt. L'adresse est nettoyée des espaces autour et convertie en minuscules avant la recherche. Elle n'est pas sensible à la casse. L'adresse e-mail est le seul identifiant accepté pour se connecter; le champ username est rejeté.
 
 En cas de succès, renvoie un JWT valide pendant 1 heure. Si le compte n'existe pas ou si le mot de passe ne correspond pas, la réponse est toujours 401 avec le code invalid_credentials pour ne pas révéler l'existence d'un compte.
         `.trim(),
         requestBody: {
           required: true,
-          description: "Un objet JSON contenant username et password. Le mot de passe doit respecter les mêmes longueurs que lors de l'inscription.",
+          description: "Un objet JSON contenant email et password. Le nom d'utilisateur seul ou en plus de l'e-mail n'est pas accepté pour cette route.",
           content: {
             "application/json": {
-              schema: { $ref: "#/components/schemas/CredentialsRequest" },
+              schema: { $ref: "#/components/schemas/LoginRequest" },
               examples: {
                 valide: {
                   summary: "Connexion valide",
-                  value: { username: "alice", password: "mot-de-passe-123" },
+                  value: { email: "alice@example.fr", password: "mot-de-passe-123" },
                 },
                 identifiantsIncorrects: {
                   summary: "Exemple : compte absent ou mot de passe erroné",
-                  value: { username: "alice", password: "mauvais-mot-de-passe" },
+                  value: { email: "alice@example.fr", password: "mauvais-mot-de-passe" },
+                },
+                usernameNonAccepte: {
+                  summary: "Exemple invalide : username n'est pas un identifiant de connexion",
+                  value: { username: "alice", email: "alice@example.fr", password: "mot-de-passe-123" },
                 },
               },
             },
@@ -224,18 +246,26 @@ En cas de succès, renvoie un JWT valide pendant 1 heure. Si le compte n'existe 
                       details: [{ field: "body", code: "invalid_json", message: "Impossible de lire le corps JSON envoyé." }],
                     },
                   },
+                  usernameRefuse: {
+                    summary: "La connexion par username n'est pas autorisée",
+                    value: {
+                      error: "invalid_request",
+                      message: "La requête contient des champs invalides. Consultez details pour savoir quoi corriger.",
+                      details: [{ field: "username", code: "unsupported_field", message: "La connexion par nom d'utilisateur n'est pas acceptée. Utilisez le champ email." }],
+                    },
+                  },
                 },
               },
             },
           },
           401: {
-            description: "Compte inconnu ou mot de passe incorrect. Cette réponse ne permet pas de distinguer ces deux cas.",
+            description: "Adresse e-mail inconnue ou mot de passe incorrect. Cette réponse ne permet pas de distinguer ces cas.",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ApiError" },
                 example: {
                   error: "invalid_credentials",
-                  message: "Nom d'utilisateur ou mot de passe incorrect. Vérifiez vos identifiants puis réessayez.",
+                  message: "Adresse e-mail ou mot de passe incorrect. Vérifiez vos identifiants puis réessayez.",
                 },
               },
             },
@@ -283,11 +313,11 @@ La requête doit contenir un en-tête Authorization utilisant le schéma Bearer 
         security: [{ BearerAuth: [] }],
         responses: {
           200: {
-            description: "Le jeton est valide. Le profil contient le nom d'utilisateur public; aucun mot de passe ni hash n'est renvoyé.",
+            description: "Le jeton est valide. Le profil contient le nom d'utilisateur et l'e-mail pour les comptes qui en possèdent un; aucun mot de passe ni hash n'est renvoyé. Les comptes historiques peuvent ne pas avoir d'e-mail.",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/CurrentUserResponse" },
-                example: { user: { username: "alice" } },
+                example: { user: { username: "alice", email: "alice@example.fr" } },
               },
             },
           },
@@ -332,23 +362,42 @@ La requête doit contenir un en-tête Authorization utilisant le schéma Bearer 
   },
   components: {
     schemas: {
-      CredentialsRequest: {
+      RegisterRequest: {
         type: "object",
-        required: ["username", "password"],
+        required: ["username", "email", "password"],
         properties: {
-          username: {
-            type: "string",
-            pattern: "^\\s*[A-Za-z0-9_.-]{3,32}\\s*$",
-            description: "Après suppression des espaces au début et à la fin : 3 à 32 caractères ASCII parmi les lettres, chiffres, _, . et -. Aucun espace interne. Unicité insensible à la casse à l'inscription.",
-            example: "alice",
-          },
-          password: {
-            type: "string",
-            minLength: 8,
-            description: "Minimum 8 caractères Unicode et maximum 72 octets UTF-8. La limite supérieure est en octets, pas en caractères, pour respecter bcrypt.",
-            example: "mot-de-passe-123",
-          },
+          username: { $ref: "#/components/schemas/Username" },
+          email: { $ref: "#/components/schemas/EmailAddress" },
+          password: { $ref: "#/components/schemas/Password" },
         },
+      },
+      LoginRequest: {
+        type: "object",
+        description: "Seuls email et password sont acceptés pour la connexion. username ne peut pas être utilisé comme identifiant.",
+        required: ["email", "password"],
+        not: { required: ["username"] },
+        properties: {
+          email: { $ref: "#/components/schemas/EmailAddress" },
+          password: { $ref: "#/components/schemas/Password" },
+        },
+      },
+      Username: {
+        type: "string",
+        pattern: "^\\s*[A-Za-z0-9_.-]{3,32}\\s*$",
+        description: "Après suppression des espaces au début et à la fin : 3 à 32 caractères ASCII parmi les lettres, chiffres, _, . et -. Aucun espace interne. Unicité insensible à la casse.",
+        example: "alice",
+      },
+      EmailAddress: {
+        type: "string",
+        pattern: "^\\s*[^\\s@]+@[^\\s@]+\\.[^\\s@]+\\s*$",
+        description: "Adresse de la forme nom@exemple.fr. Maximum 254 caractères après suppression des espaces autour et conversion en minuscules. Unicité sans distinction de casse. L'API ne vérifie pas la possession de l'adresse.",
+        example: "alice@example.fr",
+      },
+      Password: {
+        type: "string",
+        minLength: 8,
+        description: "Minimum 8 caractères Unicode et maximum 72 octets UTF-8. La limite supérieure est en octets, pas en caractères, pour respecter bcrypt.",
+        example: "mot-de-passe-123",
       },
       TokenResponse: {
         type: "object",
@@ -363,7 +412,7 @@ La requête doit contenir un en-tête Authorization utilisant le schéma Bearer 
         type: "object",
         required: ["user", "token", "token_type", "expires_in"],
         properties: {
-          user: { $ref: "#/components/schemas/PublicUser" },
+          user: { $ref: "#/components/schemas/RegisteredUser" },
           token: { type: "string", description: "JWT signé en HS256. Utilisez-le comme jeton Bearer.", example: "<jwt>" },
           token_type: { type: "string", enum: ["Bearer"] },
           expires_in: { type: "integer", format: "int32", enum: [3600], description: "Durée de validité du jeton en secondes.", example: 3600 },
@@ -377,8 +426,18 @@ La requête doit contenir un en-tête Authorization utilisant le schéma Bearer 
       PublicUser: {
         type: "object",
         required: ["username"],
+        description: "L'e-mail est absent pour les comptes historiques créés avant l'ajout de cette donnée.",
         properties: {
           username: { type: "string", minLength: 3, maxLength: 32, description: "Nom d'utilisateur normalisé renvoyé par l'API.", example: "alice" },
+          email: { $ref: "#/components/schemas/EmailAddress" },
+        },
+      },
+      RegisteredUser: {
+        type: "object",
+        required: ["username", "email"],
+        properties: {
+          username: { $ref: "#/components/schemas/Username" },
+          email: { $ref: "#/components/schemas/EmailAddress" },
         },
       },
       ApiError: {
@@ -395,7 +454,7 @@ La requête doit contenir un en-tête Authorization utilisant le schéma Bearer 
               required: ["field", "code", "message"],
               properties: {
                 field: { type: "string", description: "Nom du champ invalide ou body pour une erreur de JSON.", example: "password" },
-                code: { type: "string", description: "Code de validation stable pour ce champ.", enum: ["required", "invalid_type", "invalid_length", "invalid_characters", "too_short", "too_long", "already_taken", "invalid_json"], example: "too_short" },
+                code: { type: "string", description: "Code de validation stable pour ce champ.", enum: ["required", "invalid_type", "invalid_length", "invalid_characters", "invalid_format", "unsupported_field", "too_short", "too_long", "already_taken", "invalid_json"], example: "too_short" },
                 message: { type: "string", description: "Mesure reçue et contrainte attendue lorsque cela s'applique.", example: "Le mot de passe contient 5 caractères; le minimum est de 8." },
               },
             },

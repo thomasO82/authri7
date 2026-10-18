@@ -23,13 +23,18 @@ function requireAuth(req, res, next) {
       algorithms: ["HS256"],
     });
 
-    if (typeof payload.sub !== "string" || typeof payload.username !== "string") {
+    if (
+      typeof payload.sub !== "string" ||
+      typeof payload.username !== "string" ||
+      (payload.email !== undefined && typeof payload.email !== "string")
+    ) {
       return unauthorized(res, "Le jeton ne contient pas les informations d'identité attendues. Reconnectez-vous.");
     }
 
     req.authUser = {
       id: payload.sub,
       username: payload.username,
+      email: payload.email,
     };
 
     return next();
