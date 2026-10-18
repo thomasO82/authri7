@@ -47,7 +47,7 @@ Le jeton reste valide pendant une heure. Quand il expire, connectez-vous à nouv
         description: `
 Crée un compte avec le nom d'utilisateur, l'adresse e-mail et le mot de passe fournis, puis renvoie immédiatement un jeton utilisable sur **GET /api/me**.
 
-Le nom d'utilisateur est nettoyé des espaces au début et à la fin. Il doit contenir de 3 à 32 caractères ASCII : lettres, chiffres, tiret bas, point ou tiret. Il est unique sans distinction de casse et affiché dans le profil, mais ne permet pas de se connecter.
+Le nom d'utilisateur est nettoyé des espaces au début et à la fin. Il doit contenir de 3 à 32 caractères ASCII : lettres, chiffres, tiret bas, point ou tiret. Plusieurs comptes peuvent utiliser le même nom. Il est affiché dans le profil mais ne permet pas de se connecter.
 
 L'adresse e-mail est obligatoire. Les espaces autour sont supprimés et l'adresse est convertie en minuscules avant enregistrement. Elle doit avoir au plus 254 caractères et ressembler à une adresse de la forme nom@exemple.fr. Une même adresse ne peut être utilisée que pour un seul compte. L'API ne confirme pas que l'utilisateur contrôle cette adresse.
 
@@ -122,25 +122,14 @@ Le mot de passe doit contenir au moins 8 caractères Unicode et au maximum 72 oc
             },
           },
           409: {
-            description: "Le nom d'utilisateur ou l'adresse e-mail est déjà utilisé.",
+            description: "L'adresse e-mail est déjà associée à un compte.",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ApiError" },
-                examples: {
-                  emailPris: {
-                    value: {
-                      error: "email_taken",
-                      message: "Cette adresse e-mail est déjà associée à un compte. Utilisez une autre adresse ou connectez-vous.",
-                      details: [{ field: "email", code: "already_taken", message: "Les adresses e-mail sont normalisées en minuscules et uniques." }],
-                    },
-                  },
-                  usernamePris: {
-                    value: {
-                      error: "username_taken",
-                      message: "Ce nom d'utilisateur est déjà utilisé. Choisissez-en un autre.",
-                      details: [{ field: "username", code: "already_taken", message: "Les noms d'utilisateur sont uniques sans distinction de casse." }],
-                    },
-                  },
+                example: {
+                  error: "email_taken",
+                  message: "Cette adresse e-mail est déjà associée à un compte. Utilisez une autre adresse ou connectez-vous.",
+                  details: [{ field: "email", code: "already_taken", message: "Les adresses e-mail sont normalisées en minuscules et uniques." }],
                 },
               },
             },
@@ -368,7 +357,7 @@ La requête doit contenir un en-tête Authorization utilisant le schéma Bearer 
         minLength: 3,
         maxLength: 32,
         pattern: "^[A-Za-z0-9_.-]+$",
-        description: "Nom public conservé dans le profil. Il n'est pas utilisé pour la connexion. Unique sans distinction de casse.",
+        description: "Nom public conservé dans le profil. Il n'est pas utilisé pour la connexion et n'a pas besoin d'être unique.",
         example: "alice",
       },
       EmailAddress: {

@@ -33,7 +33,7 @@ Lancez avec PM2 en production depuis le dossier du projet :
 PORT=3999 pm2 start npm --name authri7 -- run start
 ```
 
-La base est créée automatiquement dans `data/auth.sqlite`. Au démarrage, une ancienne base reçoit la colonne `username` si elle n'existe pas. Les comptes historiques conservent leur adresse e-mail comme identifiant de connexion ; leur nom d'utilisateur peut rester vide s'il avait été supprimé précédemment. Les nouveaux noms d'utilisateur sont uniques sans distinction de casse. Le processus PM2 doit pouvoir écrire dans `data/`. Le fichier est ignoré par Git et reste présent au redémarrage du serveur ; prévoyez une sauvegarde si les comptes doivent être conservés.
+La base est créée automatiquement dans `data/auth.sqlite`. Au démarrage, une ancienne base reçoit la colonne `username` si elle n'existe pas, et les anciennes contraintes d'unicité sur le nom d'utilisateur sont supprimées. Les comptes historiques conservent leur adresse e-mail comme identifiant de connexion ; leur nom d'utilisateur peut rester vide s'il avait été supprimé précédemment. Plusieurs comptes peuvent utiliser le même nom d'utilisateur. Le processus PM2 doit pouvoir écrire dans `data/`. Le fichier est ignoré par Git et reste présent au redémarrage du serveur ; prévoyez une sauvegarde si les comptes doivent être conservés.
 
 ## Swagger
 
@@ -76,7 +76,7 @@ Crée un compte et renvoie un JWT. Le nom d'utilisateur est conservé et affich�
 { "username": "alice", "email": "alice@example.fr", "password": "mot-de-passe-123" }
 ```
 
-Le nom d'utilisateur est nettoyé des espaces autour, doit contenir de 3 à 32 caractères ASCII (lettres, chiffres, `.`, `_` ou `-`) et être unique sans distinction de casse. L'adresse e-mail est nettoyée des espaces autour, convertie en minuscules, limitée à 254 caractères et doit ressembler à `nom@exemple.fr`. Elle est le seul identifiant utilisé pour se connecter. Le mot de passe doit avoir au moins 8 caractères et ne pas dépasser 72 octets en UTF-8. Il est stocké sous forme de hash bcrypt.
+Le nom d'utilisateur est nettoyé des espaces autour et doit contenir de 3 à 32 caractères ASCII (lettres, chiffres, `.`, `_` ou `-`). Plusieurs comptes peuvent utiliser le même nom. L'adresse e-mail est nettoyée des espaces autour, convertie en minuscules, limitée à 254 caractères et doit ressembler à `nom@exemple.fr`. Elle est le seul identifiant utilisé pour se connecter. Le mot de passe doit avoir au moins 8 caractères et ne pas dépasser 72 octets en UTF-8. Il est stocké sous forme de hash bcrypt.
 
 L'adresse n'est pas confirmée par e-mail : l'API ne vérifie pas que l'utilisateur la contrôle.
 
@@ -91,7 +91,7 @@ En cas de succès, la réponse `201` ressemble à ceci :
 }
 ```
 
-Un champ absent ou invalide reçoit `400` avec `error: "invalid_request"`, un message et une entrée par erreur dans `details`. Nom d'utilisateur déjà utilisé : `409` avec `error: "username_taken"`. Adresse e-mail déjà utilisée : `409` avec `error: "email_taken"`.
+Un champ absent ou invalide reçoit `400` avec `error: "invalid_request"`, un message et une entrée par erreur dans `details`. Adresse e-mail déjà utilisée : `409` avec `error: "email_taken"`.
 
 ### `POST /api/login`
 

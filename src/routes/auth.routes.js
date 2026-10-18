@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { createUser, findUserByEmail, findUserByUsername } = require("../db/database");
+const { createUser, findUserByEmail } = require("../db/database");
 const { sendError, sendValidationError, validationDetail } = require("../utils/http-errors");
 
 const router = express.Router();
@@ -164,16 +164,6 @@ function validateLogin(body) {
   };
 }
 
-function sendUsernameTaken(res) {
-  return sendError(
-    res,
-    409,
-    "username_taken",
-    "Ce nom d'utilisateur est déjà utilisé. Choisissez-en un autre.",
-    [validationDetail("username", "already_taken", "Les noms d'utilisateur sont uniques sans distinction de casse.")],
-  );
-}
-
 function sendEmailTaken(res) {
   return sendError(
     res,
@@ -189,10 +179,6 @@ router.post("/register", async (req, res) => {
 
   if (details.length) {
     return sendValidationError(res, details);
-  }
-
-  if (findUserByUsername(username)) {
-    return sendUsernameTaken(res);
   }
 
   if (findUserByEmail(email)) {
@@ -211,11 +197,6 @@ router.post("/register", async (req, res) => {
     if (error.code === "SQLITE_CONSTRAINT_UNIQUE" && findUserByEmail(email)) {
       return sendEmailTaken(res);
     }
-
-    if (error.code === "SQLITE_CONSTRAINT_UNIQUE" && findUserByUsername(username)) {
-      return sendUsernameTaken(res);
-    }
-
     throw error;
   }
 });
