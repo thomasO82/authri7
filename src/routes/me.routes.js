@@ -5,10 +5,7 @@ const router = express.Router();
 
 router.get("/me", requireAuth, (req, res) => {
   return res.status(200).json({
-    user: {
-      username: req.authUser.username,
-      ...(req.authUser.email ? { email: req.authUser.email } : {}),
-    },
+    user: { email: req.authUser.email },
   });
 });
 
