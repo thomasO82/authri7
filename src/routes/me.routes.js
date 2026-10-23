@@ -8,6 +8,7 @@ router.get("/me", requireAuth, (req, res) => {
     user: {
       ...(req.authUser.username ? { username: req.authUser.username } : {}),
       email: req.authUser.email,
+      id: req.authUser.id
     },
   });
 });
